@@ -1,11 +1,13 @@
 require "spec_helper"
 
-describe XeCurrency do
-  it "has a version number" do
-    expect(XeCurrency::VERSION).not_to be nil
-  end
+describe Money::Bank::XeCurrency do
+  it "converts rates" do
+    stub_request(:get, "http://www.xe.com/currencyconverter/convert?Amount=1&From=JPY&To=USD").
+      to_return(body: get_response("JPY_TO_USD.html"))
+    stub_request(:get, "http://www.xe.com/currencyconverter/convert?Amount=1&From=USD&To=JPY").
+      to_return(body: get_response("USD_TO_JPY.html"))
 
-  it "does something useful" do
-    expect(false).to eq(true)
+    money = Money.new(10_000, "JPY")
+    expect(money.exchange_to(:USD).to_s).to eq("89.72")
   end
 end
