@@ -22,10 +22,10 @@ Gem::Specification.new do |spec|
   end
 
   spec.add_dependency "money", "~> 6.7"
-  spec.add_dependency "nokogiri", "~> 1.7.2"
+  spec.add_dependency "nokogiri", "~> 1.7", ">= 1.7.2"
 
   spec.files =  Dir.glob("{lib,spec}/**/*")
-  spec.files += %w(LICENSE README.md CHANGELOG.md AUTHORS)
+  spec.files += %w(LICENSE.txt README.md)
   spec.files += %w(Rakefile xe_currency.gemspec)
 
   spec.add_development_dependency "bundler", "~> 1.13"
