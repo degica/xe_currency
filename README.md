@@ -1,39 +1,32 @@
 # XeCurrency
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/xe_currency`. To experiment with that code, run `bin/console` for an interactive prompt.
+This gem extends Money::Bank::VariableExchange with Money::Bank::XeCurrency and
+gives you access to the current rates from the XE currency converter.
 
-TODO: Delete this and the text above, and describe your gem
-
-## Installation
-
-Add this line to your application's Gemfile:
+Usage
+-----
 
 ```ruby
-gem 'xe_currency'
+require 'money'
+require 'money/bank/xe_currency'
+
+# (optional)
+# set the seconds after than the current rates are automatically expired
+# by default, they never expire
+Money::Bank::XeCurrency.ttl_in_seconds = 86400
+
+# set default bank to instance of XeCurrency
+Money.default_bank = Money::Bank::XeCurrency.new
+
+# create a new money object, and use the standard #exchange_to method
+money = Money.new(1_00, "USD") # amount is in cents
+money.exchange_to(:EUR)
+
+# or install and use the 'monetize' gem
+require 'monetize'
+money = 1.to_money(:USD)
+money.exchange_to(:EUR)
 ```
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install xe_currency
-
-## Usage
-
-TODO: Write usage instructions here
-
-## Development
-
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
-
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
-
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/xe_currency.
-
 
 ## License
 
