@@ -5,7 +5,7 @@ require 'xe_currency/version'
 
 Gem::Specification.new do |spec|
   spec.name          = "xe_currency"
-  spec.version       = XeCurrency::VERSION
+  spec.version       = "0.0.1"
   spec.authors       = ["Chris Salzberg"]
   spec.email         = ["csalzberg@degica.com"]
 
