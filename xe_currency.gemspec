@@ -1,7 +1,6 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'xe_currency/version'
 
 Gem::Specification.new do |spec|
   spec.name          = "xe_currency"
@@ -23,6 +22,7 @@ Gem::Specification.new do |spec|
   end
 
   spec.add_dependency "money", "~> 6.7"
+  spec.add_dependency "nokogiri", "~> 1.7.2"
 
   spec.files =  Dir.glob("{lib,spec}/**/*")
   spec.files += %w(LICENSE README.md CHANGELOG.md AUTHORS)
