@@ -1,0 +1,10 @@
+AllCops:
+  TargetRubyVersion: 2.7
+  SuggestExtensions: false
+  NewCops: enable
+
+Style/Documentation:
+  Enabled: false
+
+Gemspec/RequireMFA:
+  Enabled: false

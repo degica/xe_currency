@@ -1,0 +1,13 @@
+{
+    "terms": "http://www.xe.com/legal/dfs.php",
+    "privacy": "http://www.xe.com/privacy.php",
+    "from": "USD",
+    "amount": 1.0,
+    "timestamp": "2022-05-13T00:00:00Z",
+    "to": [
+        {
+            "quotecurrency": "JPY",
+            "mid": 128.6012304362
+        }
+    ]
+}

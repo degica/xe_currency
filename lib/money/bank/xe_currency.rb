@@ -1,7 +1,8 @@
+# frozen_string_literal: true
+
 require 'money'
 require 'money/rates_store/rate_removal_support'
-require 'open-uri'
-require "nokogiri"
+require 'net/https'
 
 class Money
   module Bank
@@ -11,12 +12,13 @@ class Money
       class XeCurrencyFetchError < Error
       end
 
-      SERVICE_HOST = "www.xe.com"
-      SERVICE_PATH = "/currencyconverter/convert"
+      SERVICE_HOST = 'xecdapi.xe.com'
+      SERVICE_PATH = '/v1/convert_from.json'
 
       # @return [Hash] Stores the currently known rates.
       attr_reader :rates
 
+      attr_accessor :account_api_id, :account_api_key
 
       class << self
         # @return [Integer] Returns the Time To Live (TTL) in seconds.
@@ -43,9 +45,11 @@ class Money
         end
       end
 
-      def initialize(*)
-        super
+      def initialize(rate_store, account_api_id:, account_api_key:)
+        super(rate_store)
         @store.extend Money::RatesStore::RateRemovalSupport
+        @account_api_id = account_api_id
+        @account_api_key = account_api_key
       end
 
       ##
@@ -84,8 +88,8 @@ class Money
       #
       # It also flushes all the rates when and if they are expired.
       #
-      # @param [String, Symbol, Currency] from Currency to convert from
-      # @param [String, Symbol, Currency] to Currency to convert to
+      # @param [Currency] from Currency to convert from
+      # @param [Currency] to Currency to convert to
       #
       # @return [Float] The requested rate.
       #
@@ -94,7 +98,11 @@ class Money
       #   @bank.get_rate(:USD, :EUR)  #=> 0.776337241
       def get_rate(from, to)
         expire_rates
-        store.get_rate(from, to) || store.add_rate(from, to, fetch_rate(from, to))
+
+        from_iso_code = from.iso_code
+        to_iso_code = to.iso_code
+
+        store.get_rate(from_iso_code, to_iso_code) || store.add_rate(from_iso_code, to_iso_code, fetch_rate(from, to))
       end
 
       ##
@@ -116,21 +124,15 @@ class Money
       ##
       # Queries for the requested rate and returns it.
       #
-      # @param [String, Symbol, Currency] from Currency to convert from
-      # @param [String, Symbol, Currency] to Currency to convert to
+      # @param [Currency] from Currency to convert from
+      # @param [Currency] to Currency to convert to
       #
       # @return [BigDecimal] The requested rate.
       def fetch_rate(from, to)
-        from, to = Currency.wrap(from), Currency.wrap(to)
-
-        data = build_uri(from, to).read
-        rate = extract_rate(data);
-
-        if (rate < 0.1)
-          rate = 1/extract_rate(build_uri(to, from).read)
-        end
-
-        rate
+        uri = build_uri(from, to)
+        res = get(uri)
+        data = raise_or_return(res)
+        extract_rate(data)
       end
 
       ##
@@ -139,13 +141,28 @@ class Money
       # @param [Currency] from The currency to convert from.
       # @param [Currency] to The currency to convert to.
       #
-      # @return [URI::HTTP]
+      # @return [URI::HTTPS]
       def build_uri(from, to)
-        uri = URI::HTTPS.build(
-          :host  => SERVICE_HOST,
-          :path  => SERVICE_PATH,
-          :query => "Amount=1&From=#{from.iso_code}&To=#{to.iso_code}"
+        URI::HTTPS.build(
+          host: SERVICE_HOST,
+          path: SERVICE_PATH,
+          query: [
+            "from=#{from.iso_code}",
+            "to=#{to.iso_code}"
+          ].join('&')
         )
+      end
+
+      # Send a HTTPS Get request
+      #
+      # @param [URI::HTTPS]
+      # @return [Net::HTTPResponse]
+      def get(uri)
+        req = Net::HTTP::Get.new("#{uri.path}?#{uri.query}")
+        req.basic_auth(account_api_id, account_api_key)
+        https = Net::HTTP.new(uri.host, uri.port)
+        https.use_ssl = true
+        https.request(req)
       end
 
       ##
@@ -155,8 +172,19 @@ class Money
       #
       # @return [BigDecimal]
       def extract_rate(data)
-        rate = ::Nokogiri::HTML(data).css('.uccResultAmount')[0].inner_text
-        BigDecimal(rate)
+        rate = JSON.parse(data)['to'][0]['mid']
+        BigDecimal(rate.to_s)
+      rescue StandardError
+        raise XeCurrencyFetchError, 'Error parsing rates or adding rates to store'
+      end
+
+      def raise_or_return(response)
+        return response.body if response.code == '200'
+
+        rsp_body = JSON.parse(response.body)
+        rsp_message = rsp_body.fetch('message')
+
+        raise XeCurrencyFetchError, rsp_message
       end
     end
   end
