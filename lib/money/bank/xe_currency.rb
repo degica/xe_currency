@@ -9,16 +9,12 @@ class Money
     class XeCurrency < Money::Bank::VariableExchange
       # Raised when there is an unexpected error in extracting exchange rates
       # from Xe Finance Calculator
-      class XeCurrencyFetchError < Error
-      end
-
-      SERVICE_HOST = 'xecdapi.xe.com'
-      SERVICE_PATH = '/v1/convert_from.json'
+      class XeCurrencyFetchError < Error; end
 
       # @return [Hash] Stores the currently known rates.
       attr_reader :rates
 
-      attr_accessor :account_api_id, :account_api_key
+      attr_reader :xe_client
 
       class << self
         # @return [Integer] Returns the Time To Live (TTL) in seconds.
@@ -48,8 +44,7 @@ class Money
       def initialize(rate_store, account_api_id:, account_api_key:)
         super(rate_store)
         @store.extend Money::RatesStore::RateRemovalSupport
-        @account_api_id = account_api_id
-        @account_api_key = account_api_key
+        @xe_client = ::XeCurrency::Client.new(account_api_id: account_api_id, account_api_key: account_api_key)
       end
 
       ##
@@ -129,62 +124,9 @@ class Money
       #
       # @return [BigDecimal] The requested rate.
       def fetch_rate(from, to)
-        uri = build_uri(from, to)
-        res = get(uri)
-        data = raise_or_return(res)
-        extract_rate(data)
-      end
-
-      ##
-      # Build a URI for the given arguments.
-      #
-      # @param [Currency] from The currency to convert from.
-      # @param [Currency] to The currency to convert to.
-      #
-      # @return [URI::HTTPS]
-      def build_uri(from, to)
-        URI::HTTPS.build(
-          host: SERVICE_HOST,
-          path: SERVICE_PATH,
-          query: [
-            "from=#{from.iso_code}",
-            "to=#{to.iso_code}"
-          ].join('&')
-        )
-      end
-
-      # Send a HTTPS Get request
-      #
-      # @param [URI::HTTPS]
-      # @return [Net::HTTPResponse]
-      def get(uri)
-        req = Net::HTTP::Get.new("#{uri.path}?#{uri.query}")
-        req.basic_auth(account_api_id, account_api_key)
-        https = Net::HTTP.new(uri.host, uri.port)
-        https.use_ssl = true
-        https.request(req)
-      end
-
-      ##
-      # Takes the response from Xe and extract the rate.
-      #
-      # @param [String] data The xe rate string to decode.
-      #
-      # @return [BigDecimal]
-      def extract_rate(data)
-        rate = JSON.parse(data)['to'][0]['mid']
-        BigDecimal(rate.to_s)
-      rescue StandardError
-        raise XeCurrencyFetchError, 'Error parsing rates or adding rates to store'
-      end
-
-      def raise_or_return(response)
-        return response.body if response.code == '200'
-
-        rsp_body = JSON.parse(response.body)
-        rsp_message = rsp_body.fetch('message')
-
-        raise XeCurrencyFetchError, rsp_message
+        xe_client.fetch_rate(from.iso_code, to.iso_code)
+      rescue StandardError => e
+        raise XeCurrencyFetchError, e.message
       end
     end
   end
