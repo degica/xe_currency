@@ -25,10 +25,23 @@ module XeCurrency
     # @return [BigDecimal] The requested rate.
     # @raise [FetchError]
     def fetch_rate(from, to)
+      rates = fetch_rates(from, [to])
+      rates[to]
+    end
+
+    ##
+    # Queries for the requested rates and returns them.
+    #
+    # @param [String] from Currency to convert from
+    # @param [Array(String)] to Currencies to convert to
+    #
+    # @return [Array(BigDecimal)] The requested rates.
+    # @raise [FetchError]
+    def fetch_rates(from, to)
       uri = build_uri(from, to)
       res = get(uri)
       data = raise_or_return(res)
-      extract_rate(data)
+      extract_rates(data, to)
     end
 
     private
@@ -37,10 +50,11 @@ module XeCurrency
     # Build a URI for the given arguments.
     #
     # @param [String] from The currency to convert from.
-    # @param [String] to The currency to convert to.
+    # @param [Array(String)] to The currencies to convert to.
     #
     # @return [URI::HTTPS]
     def build_uri(from, to)
+      to = to.join(',')
       URI::HTTPS.build(
         host: SERVICE_HOST,
         path: SERVICE_PATH,
@@ -67,11 +81,16 @@ module XeCurrency
     # Takes the response from Xe and extract the rate.
     #
     # @param [String] data The xe rate string to decode.
+    # @param [Array(String)] to The currencies convert to.
     #
-    # @return [BigDecimal]
-    def extract_rate(data)
-      rate = JSON.parse(data)['to'][0]['mid']
-      BigDecimal(rate.to_s)
+    # @return [Hash{String => BigDecimal}]
+    def extract_rates(data, to)
+      json = JSON.parse(data)
+      rates = to.map do |currency|
+        rate = json['to'].find { |t| t['quotecurrency'] == currency }
+        [currency, BigDecimal(rate['mid'].to_s)]
+      end
+      Hash[*rates.flatten]
     rescue StandardError
       raise FetchError, 'Error parsing rates or adding rates to store'
     end

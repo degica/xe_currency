@@ -6,6 +6,17 @@ gives you access to the current rates from the XE currency converter.
 ## Usage
 
 ```ruby
+require 'xe_currency'
+
+client = XeCurrency::Client.new(
+                                account_api_id: '<Account API ID>',
+                                account_api_key: '<Account API Key>')
+
+client.fetch_rate('USD', 'EUR')
+client.fetch_rates('USD', ['EUR', 'JPY'])
+```
+
+```ruby
 require 'money'
 require 'money/bank/xe_currency'
 
