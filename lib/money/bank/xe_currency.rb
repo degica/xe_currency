@@ -1,22 +1,20 @@
+# frozen_string_literal: true
+
 require 'money'
 require 'money/rates_store/rate_removal_support'
-require 'open-uri'
-require "nokogiri"
+require 'net/https'
 
 class Money
   module Bank
     class XeCurrency < Money::Bank::VariableExchange
       # Raised when there is an unexpected error in extracting exchange rates
       # from Xe Finance Calculator
-      class XeCurrencyFetchError < Error
-      end
-
-      SERVICE_HOST = "www.xe.com"
-      SERVICE_PATH = "/currencyconverter/convert"
+      class XeCurrencyFetchError < Error; end
 
       # @return [Hash] Stores the currently known rates.
       attr_reader :rates
 
+      attr_reader :xe_client
 
       class << self
         # @return [Integer] Returns the Time To Live (TTL) in seconds.
@@ -43,9 +41,10 @@ class Money
         end
       end
 
-      def initialize(*)
-        super
+      def initialize(rate_store, account_api_id:, account_api_key:)
+        super(rate_store)
         @store.extend Money::RatesStore::RateRemovalSupport
+        @xe_client = ::XeCurrency::Client.new(account_api_id: account_api_id, account_api_key: account_api_key)
       end
 
       ##
@@ -84,8 +83,8 @@ class Money
       #
       # It also flushes all the rates when and if they are expired.
       #
-      # @param [String, Symbol, Currency] from Currency to convert from
-      # @param [String, Symbol, Currency] to Currency to convert to
+      # @param [Currency] from Currency to convert from
+      # @param [Currency] to Currency to convert to
       #
       # @return [Float] The requested rate.
       #
@@ -94,7 +93,11 @@ class Money
       #   @bank.get_rate(:USD, :EUR)  #=> 0.776337241
       def get_rate(from, to)
         expire_rates
-        store.get_rate(from, to) || store.add_rate(from, to, fetch_rate(from, to))
+
+        from_iso_code = from.iso_code
+        to_iso_code = to.iso_code
+
+        store.get_rate(from_iso_code, to_iso_code) || store.add_rate(from_iso_code, to_iso_code, fetch_rate(from, to))
       end
 
       ##
@@ -116,47 +119,14 @@ class Money
       ##
       # Queries for the requested rate and returns it.
       #
-      # @param [String, Symbol, Currency] from Currency to convert from
-      # @param [String, Symbol, Currency] to Currency to convert to
+      # @param [Currency] from Currency to convert from
+      # @param [Currency] to Currency to convert to
       #
       # @return [BigDecimal] The requested rate.
       def fetch_rate(from, to)
-        from, to = Currency.wrap(from), Currency.wrap(to)
-
-        data = build_uri(from, to).read
-        rate = extract_rate(data);
-
-        if (rate < 0.1)
-          rate = 1/extract_rate(build_uri(to, from).read)
-        end
-
-        rate
-      end
-
-      ##
-      # Build a URI for the given arguments.
-      #
-      # @param [Currency] from The currency to convert from.
-      # @param [Currency] to The currency to convert to.
-      #
-      # @return [URI::HTTP]
-      def build_uri(from, to)
-        uri = URI::HTTPS.build(
-          :host  => SERVICE_HOST,
-          :path  => SERVICE_PATH,
-          :query => "Amount=1&From=#{from.iso_code}&To=#{to.iso_code}"
-        )
-      end
-
-      ##
-      # Takes the response from Xe and extract the rate.
-      #
-      # @param [String] data The xe rate string to decode.
-      #
-      # @return [BigDecimal]
-      def extract_rate(data)
-        rate = ::Nokogiri::HTML(data).css('.uccResultAmount')[0].inner_text
-        BigDecimal(rate)
+        xe_client.fetch_rate(from.iso_code, to.iso_code)
+      rescue StandardError => e
+        raise XeCurrencyFetchError, e.message
       end
     end
   end
