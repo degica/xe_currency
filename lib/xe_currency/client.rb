@@ -92,7 +92,7 @@ module XeCurrency
       end
       Hash[*rates.flatten]
     rescue StandardError => e
-      raise FetchError, "Error parsing rates or adding rates to store: #{e.message}"
+      raise FetchError, e.message
     end
 
     # @return [Hash]
