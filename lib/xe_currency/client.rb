@@ -91,8 +91,8 @@ module XeCurrency
         [currency, BigDecimal(rate['mid'].to_s)]
       end
       Hash[*rates.flatten]
-    rescue StandardError
-      raise FetchError, 'Error parsing rates or adding rates to store'
+    rescue StandardError => e
+      raise FetchError, "Error parsing rates or adding rates to store: #{e.message}"
     end
 
     # @return [Hash]
